@@ -429,7 +429,7 @@ class ft_net_middle(nn.Module):
 class ft_net_hyperbolic(nn.Module):
 
     def __init__(self, class_num=751, droprate=0, stride=2, circle=False, ibn=False, linear_num=512):
-        super(ft_net, self).__init__()
+        super(ft_net_hyperbolic, self).__init__()
         model_ft = models.resnet50(pretrained=True)
         if ibn==True:
             model_ft = torch.hub.load('XingangPan/IBN-Net', 'resnet50_ibn_a', pretrained=True)

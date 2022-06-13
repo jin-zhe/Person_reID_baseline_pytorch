@@ -450,7 +450,7 @@ elif opt.use_hr:
 elif opt.use_convnext:
     model = ft_net_convnext(len(class_names), opt.droprate, circle = return_feature, linear_num=opt.linear_num)
 elif opt.use_hyperbolic:
-    model = ft_net_hyperbolic(len(class_names), opt.droprate, circle = return_feature, linear_num=opt.linear_num)
+    model = ft_net_hyperbolic(len(class_names), 0, circle = return_feature, linear_num=opt.linear_num)
 else:
     model = ft_net(len(class_names), opt.droprate, opt.stride, circle = return_feature, ibn=opt.ibn, linear_num=opt.linear_num)
 
