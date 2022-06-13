@@ -464,18 +464,28 @@ print(model)
 # model to gpu
 model = model.cuda()
 
-optim_name = optim.SGD #apex.optimizers.FusedSGD
 if opt.FSGD: # apex is needed
     optim_name = FusedSGD
+elif opt.use_hyperbolic:
+    from geoopt.optim import RiemannianAdam, RiemannianSGD
+    optim_name = RiemannianAdam
+else:
+    optim_name = optim.SGD #apex.optimizers.FusedSGD
 
 if not opt.PCB:
     ignored_params = list(map(id, model.classifier.parameters() ))
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
     classifier_params = model.classifier.parameters()
-    optimizer_ft = optim_name([
-             {'params': base_params, 'lr': 0.1*opt.lr},
-             {'params': classifier_params, 'lr': opt.lr}
-         ], weight_decay=opt.weight_decay, momentum=0.9, nesterov=True)
+    if opt.use_hyperbolic:
+        optimizer_ft = optim_name([
+                {'params': base_params, 'lr': 0.1*opt.lr},
+                {'params': classifier_params, 'lr': opt.lr}
+            ])
+    else:
+        optimizer_ft = optim_name([
+                {'params': base_params, 'lr': 0.1*opt.lr},
+                {'params': classifier_params, 'lr': opt.lr}
+            ], weight_decay=opt.weight_decay, momentum=0.9, nesterov=True)
 else:
     ignored_params = list(map(id, model.model.fc.parameters() ))
     ignored_params += (list(map(id, model.classifier0.parameters() )) 
