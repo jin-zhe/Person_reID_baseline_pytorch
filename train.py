@@ -381,7 +381,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 if epoch%10 == 9:
                     save_network(model, epoch)
                 draw_curve(epoch)
-            if phase == 'train':
+            if phase == 'train' and scheduler is not None:
                scheduler.step()
         time_elapsed = time.time() - since
         print('Training complete in {:.0f}m {:.0f}s'.format(
@@ -450,7 +450,7 @@ elif opt.use_hr:
 elif opt.use_convnext:
     model = ft_net_convnext(len(class_names), opt.droprate, circle = return_feature, linear_num=opt.linear_num)
 elif opt.use_hyperbolic:
-    model = ft_net_hyperbolic(len(class_names), 0, circle = return_feature, linear_num=opt.linear_num)
+    model = ft_net_hyperbolic(len(class_names), opt.droprate, circle = return_feature, linear_num=opt.linear_num)
 else:
     model = ft_net(len(class_names), opt.droprate, opt.stride, circle = return_feature, ibn=opt.ibn, linear_num=opt.linear_num)
 
@@ -504,10 +504,13 @@ else:
              {'params': classifier_params, 'lr': opt.lr}
          ], weight_decay=opt.weight_decay, momentum=0.9, nesterov=True)
 
-# Decay LR by a factor of 0.1 every 40 epochs
-exp_lr_scheduler = optim.lr_scheduler.StepLR(optimizer_ft, step_size=opt.total_epoch*2//3, gamma=0.1)
-if opt.cosine:
-    exp_lr_scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer_ft, opt.total_epoch, eta_min=0.01*opt.lr)
+if opt.use_hyperbolic:
+    exp_lr_scheduler = None
+else:
+    # Decay LR by a factor of 0.1 every 40 epochs
+    optim.lr_scheduler.StepLR(optimizer_ft, step_size=opt.total_epoch*2//3, gamma=0.1)
+    if opt.cosine:
+        exp_lr_scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer_ft, opt.total_epoch, eta_min=0.01*opt.lr)
 
 ######################################################################
 # Train and evaluate
