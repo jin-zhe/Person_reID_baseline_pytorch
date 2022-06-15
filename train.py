@@ -472,7 +472,10 @@ if opt.FSGD: # apex is needed
     optim_name = FusedSGD
 elif opt.use_hyperbolic:
     from geoopt.optim import RiemannianAdam, RiemannianSGD
-    optim_name = RiemannianAdam
+    if opt.hype_optim == 'RSGD':
+        optim_name = RiemannianSGD
+    elif opt.hype_optim == 'RADAM':
+        optim_name = RiemannianAdam
 else:
     optim_name = optim.SGD #apex.optimizers.FusedSGD
 
