@@ -191,9 +191,11 @@ class ClassBlock(nn.Module):
             self.ball = create_ball(c=c)
         add_block = []
         if self.hyperbolic:
-            # droprate, relu, bnorm ignored for hyperbolic
+            # relu ignored
             if linear > 0:
-                add_block += [MobiusLinear(input_dim, linear, ball=self.ball)]
+                add_block += [nn.Linear(input_dim, linear)]
+                add_block += [nn.BatchNorm1d(linear)]
+                # add_block += [MobiusLinear(input_dim, linear, ball=self.ball)]
         else:
             if linear>0:
                 add_block += [nn.Linear(input_dim, linear)]
@@ -220,9 +222,9 @@ class ClassBlock(nn.Module):
         self.add_block = add_block
         self.classifier = classifier
     def forward(self, x):
+        x = self.add_block(x)
         if self.hyperbolic:
             x = self.ball.expmap0(x)
-        x = self.add_block(x)
         if self.return_f:
             f = x
             x = self.classifier(x)
