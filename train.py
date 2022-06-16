@@ -22,6 +22,7 @@ import yaml
 from shutil import copyfile
 from circle_loss import CircleLoss, convert_label_to_similarity
 from instance_loss import InstanceLoss
+import wandb
 
 version =  torch.__version__
 #fp16
@@ -53,7 +54,8 @@ parser.add_argument('--weight_decay', default=5e-4, type=float, help='Weight dec
 parser.add_argument('--total_epoch', default=60, type=int, help='total training epoch')
 parser.add_argument('--fp16', action='store_true', help='use float16 instead of float32, which will save about 50% memory' )
 parser.add_argument('--cosine', action='store_true', help='use cosine lrRate' )
-parser.add_argument('--FSGD', action='store_true', help='use fused sgd, which will speed up trainig slightly. apex is needed.' )
+parser.add_argument('--FSGD', action='store_true', help='use fused sgd, which will speed up training slightly. apex is needed.' )
+parser.add_argument('--hype_optim', choices=['RSGD', 'RADAM'], help='Hyperbolic optimizer to be used. Currently only "RSGD" and "RADAM" are supported.' )
 # backbone
 parser.add_argument('--linear_num', default=512, type=int, help='feature dimension: 512 or default or 0 (linear=False)')
 parser.add_argument('--stride', default=2, type=int, help='stride')
@@ -227,8 +229,8 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
         criterion_instance = InstanceLoss(gamma = opt.ins_gamma)
     if opt.sphere:
         criterion_sphere = losses.SphereFaceLoss(num_classes=opt.nclasses, embedding_size=512, margin=4)
-    for epoch in range(num_epochs):
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
+    for epoch in range(1,num_epochs+1):
+        print('Epoch {}/{}'.format(epoch, num_epochs))
         print('-' * 10)
         
         # Each epoch has a training and validation phase
@@ -312,7 +314,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
                 del inputs
                 # use extra DG Dataset (https://github.com/NVlabs/DG-Net#dg-market)
-                if opt.DG and phase == 'train' and epoch > num_epochs*0.1:
+                if opt.DG and phase == 'train' and epoch-1 > num_epochs*0.1:
                     try:
                         _, batch = DGloader_iter.__next__()
                     except StopIteration: 
@@ -348,7 +350,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                     del inputs1, inputs2
                     #print(0.01*reg)
                 # backward + optimize only if in training phase
-                if epoch<opt.warm_epoch and phase == 'train': 
+                if epoch-1<opt.warm_epoch and phase == 'train': 
                     warm_up = min(1.0, warm_up + 0.9 / warm_iteration)
                     loss = loss*warm_up
 
@@ -370,6 +372,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             epoch_loss = running_loss / dataset_sizes[phase]
             epoch_acc = running_corrects / dataset_sizes[phase]
             
+            wandb.log({f'{phase}/Loss': epoch_loss, f'{phase}/Acc': epoch_acc}, step=epoch)
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(
                 phase, epoch_loss, epoch_acc))
             
@@ -383,6 +386,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 draw_curve(epoch)
             if phase == 'train' and scheduler is not None:
                scheduler.step()
+        wandb.log({'epoch':epoch}, step=epoch)
         time_elapsed = time.time() - since
         print('Training complete in {:.0f}m {:.0f}s'.format(
             time_elapsed // 60, time_elapsed % 60))
@@ -468,7 +472,10 @@ if opt.FSGD: # apex is needed
     optim_name = FusedSGD
 elif opt.use_hyperbolic:
     from geoopt.optim import RiemannianAdam, RiemannianSGD
-    optim_name = RiemannianAdam
+    if opt.hype_optim == 'RSGD':
+        optim_name = RiemannianSGD
+    elif opt.hype_optim == 'RADAM':
+        optim_name = RiemannianAdam
 else:
     optim_name = optim.SGD #apex.optimizers.FusedSGD
 
@@ -536,6 +543,23 @@ if fp16:
     #optimizer_ft = FP16_Optimizer(optimizer_ft, static_loss_scale = 128.0)
     model, optimizer_ft = amp.initialize(model, optimizer_ft, opt_level = "O1")
 
-model = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,
-                       num_epochs=opt.total_epoch)
+######################################################################
+# Use wandb
+# ---------
+#
+config={
+    'batchsize': opt.batchsize,
+    'total_epoch': opt.total_epoch,
+    'lr': opt.lr,
+    'droprate': opt.droprate,
+    'hype_optim': opt.hype_optim
+}
+with wandb.init(project=f'reid_{opt.name}', config=config):    
+    wandb.define_metric("epoch")
+    for phase in ['train', 'val']:
+        for metric in ['Loss', 'Acc']:
+            wandb.define_metric(f'{phase}/{metric}', step_metric='epoch')
+    wandb.watch(models=model, criterion=criterion,log='all', log_freq=10)
+    model = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,
+        num_epochs=opt.total_epoch)
 
