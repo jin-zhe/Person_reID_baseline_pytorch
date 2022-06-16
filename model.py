@@ -190,28 +190,23 @@ class ClassBlock(nn.Module):
         if self.hyperbolic:
             self.ball = create_ball(c=c)
         add_block = []
-        if self.hyperbolic:
-            # droprate, relu, bnorm ignored for hyperbolic
-            if linear > 0:
-                add_block += [MobiusLinear(input_dim, linear, ball=self.ball)]
+        if linear>0:
+            add_block += [nn.Linear(input_dim, linear)]
         else:
-            if linear>0:
-                add_block += [nn.Linear(input_dim, linear)]
-            else:
-                linear = input_dim
-            if bnorm:
-                add_block += [nn.BatchNorm1d(linear)]
-            if relu:
-                add_block += [nn.LeakyReLU(0.1)]
-            if droprate>0:
-                add_block += [nn.Dropout(p=droprate)]
+            linear = input_dim
+        if bnorm:
+            add_block += [nn.BatchNorm1d(linear)]
+        if relu:
+            add_block += [nn.LeakyReLU(0.1)]
+        if droprate>0:
+            add_block += [nn.Dropout(p=droprate)]
 
         add_block = nn.Sequential(*add_block)
+        add_block.apply(weights_init_kaiming)
 
         if self.hyperbolic:
-            classifier = Distance2PoincareHyperplanes(in_features=linear, out_features=class_num, ball=self.ball)
+            classifier = Distance2PoincareHyperplanes(in_features=linear, out_features=class_num, ball=self.ball, std=0.001)
         else:
-            add_block.apply(weights_init_kaiming)
             classifier = []
             classifier += [nn.Linear(linear, class_num)]
             classifier = nn.Sequential(*classifier)
@@ -220,9 +215,9 @@ class ClassBlock(nn.Module):
         self.add_block = add_block
         self.classifier = classifier
     def forward(self, x):
+        x = self.add_block(x)
         if self.hyperbolic:
             x = self.ball.expmap0(x)
-        x = self.add_block(x)
         if self.return_f:
             f = x
             x = self.classifier(x)
@@ -444,7 +439,7 @@ class ft_net_hyperbolic(nn.Module):
         self.model = model_ft
         self.circle = circle
 
-        self.classifier = ClassBlock(2048, class_num, droprate, bnorm=False, linear=linear_num, return_f=circle, hyperbolic=True)
+        self.classifier = ClassBlock(2048, class_num, droprate, linear=linear_num, return_f=circle, hyperbolic=True)
 
     def forward(self, x):
         x = self.model.conv1(x)
