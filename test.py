@@ -17,7 +17,7 @@ import os
 import scipy.io
 import yaml
 import math
-from model import ft_net, ft_net_dense, ft_net_hr, ft_net_swin, ft_net_efficient, ft_net_NAS, ft_net_convnext, PCB, PCB_test
+from model import ft_net, ft_net_dense, ft_net_hr, ft_net_swin, ft_net_efficient, ft_net_NAS, ft_net_convnext, ft_net_hyperbolic, PCB, PCB_test
 from utils import fuse_all_conv_bn
 #fp16
 try:
@@ -38,6 +38,7 @@ parser.add_argument('--linear_num', default=512, type=int, help='feature dimensi
 parser.add_argument('--use_dense', action='store_true', help='use densenet121' )
 parser.add_argument('--use_efficient', action='store_true', help='use efficient-b4' )
 parser.add_argument('--use_hr', action='store_true', help='use hr18 net' )
+parser.add_argument('--use_hyperbolic', action='store_true', help='use hyperbolic net' )
 parser.add_argument('--PCB', action='store_true', help='use PCB' )
 parser.add_argument('--multi', action='store_true', help='use multiple query' )
 parser.add_argument('--fp16', action='store_true', help='use fp16.' )
@@ -258,6 +259,8 @@ elif opt.use_swin:
     model_structure = ft_net_swin(opt.nclasses, linear_num=opt.linear_num)
 elif opt.use_convnext:
     model_structure = ft_net_convnext(opt.nclasses, linear_num=opt.linear_num)
+elif opt.use_hyperbolic:
+    model_structure = ft_net_hyperbolic(opt.nclasses, linear_num=opt.linear_num)
 elif opt.use_efficient:
     model_structure = ft_net_efficient(opt.nclasses, linear_num=opt.linear_num)
 elif opt.use_hr:
