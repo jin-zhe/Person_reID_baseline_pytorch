@@ -87,9 +87,9 @@ class Distance2PoincareHyperplanes(nn.Module):
 
   def __init__(
     self,
-    in_features: int,   # input dimension. e.g 200
-    out_features: int,  # number of hyperplanes (classes) e.g. 5
-    reparameterize=False, # whether or not to use same vector for point on plane and orthogonal
+    in_features: int,     # input dimension. e.g 200
+    out_features: int,    # output dimension. i.e. number of hyperplanes (classes) e.g. 5
+    reparameterize=True,  # whether or not to use same vector for point on plane and orthogonal
     signed=True,
     squared=False,
     *,
@@ -99,18 +99,17 @@ class Distance2PoincareHyperplanes(nn.Module):
     super().__init__()
     self.signed = signed
     self.squared = squared
-    # Do not forget to save Manifold instance to the Module
     self.ball = ball
-    self.in_features = size2shape(in_features) # e.g. (200,)
-    self.out_features = out_features                        # e.g. 5
+    self.in_features = size2shape(in_features) # e.g. shape: (200,)
+    self.out_features = out_features           # e.g. 5
     self.reparameterize = reparameterize
-    self.p = ManifoldParameter(
+    self.p = ManifoldParameter(                # hyperplane points
       torch.empty(out_features, in_features), manifold=self.ball  #e.g. shape: (5, 200)
     )
     if self.reparameterize:
       self.a = self.p
     else:
-      self.a = ManifoldParameter(
+      self.a = ManifoldParameter(             # hyperplane orthogonals
         torch.empty(out_features, in_features), manifold=self.ball 
       )
     self.std = std
@@ -145,14 +144,17 @@ class Distance2PoincareHyperplanes(nn.Module):
 
   @torch.no_grad()
   def reset_parameters(self):
-    direction = torch.randn_like(self.p)
-    direction /= direction.norm(dim=-1, keepdim=True)
-    distance = torch.empty_like(self.p[..., 0]).normal_(std=self.std) # TODO ???
-    self.p.set_(self.ball.expmap0(direction * distance.unsqueeze(-1)))
+    # reset self.p
+    directions = torch.randn_like(self.p)
+    unit_directions = directions / directions.norm(dim=-1, keepdim=True)
+    magnitudes = torch.empty_like(self.p[..., 0]).normal_(std=self.std).unsqueeze(-1)
+    self.p.set_(self.ball.expmap0(unit_directions * magnitudes))
+    
+    # reset self.a
     if self.reparameterize:
       self.a = self.p
     else:
-      self.a.set_(self.ball.expmap0(direction * distance.unsqueeze(-1)))
+      self.a.set_(unit_directions)
 
 ######################################################################
 def weights_init_kaiming(m):

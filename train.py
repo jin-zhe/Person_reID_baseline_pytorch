@@ -66,7 +66,7 @@ parser.add_argument('--use_efficient', action='store_true', help='use efficientn
 parser.add_argument('--use_NAS', action='store_true', help='use NAS' )
 parser.add_argument('--use_hr', action='store_true', help='use hrNet' )
 parser.add_argument('--use_convnext', action='store_true', help='use ConvNext' )
-parser.add_argument('--use_hyperbolic', action='store_true', help='use hyperbolic head' )
+parser.add_argument('--use_hyperbolic', action='store_true', help='use hyperbolic net' )
 parser.add_argument('--ibn', action='store_true', help='use resnet+ibn' )
 parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50' )
 # los
