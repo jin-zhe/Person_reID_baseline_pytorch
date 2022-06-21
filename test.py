@@ -17,7 +17,7 @@ import os
 import scipy.io
 import yaml
 import math
-from model import ft_net, ft_net_dense, ft_net_hr, ft_net_swin, ft_net_efficient, ft_net_NAS, ft_net_convnext, ft_net_hyperbolic, PCB, PCB_test
+from model import ClassBlock, ft_net, ft_net_dense, ft_net_hr, ft_net_swin, ft_net_efficient, ft_net_NAS, ft_net_convnext, ft_net_hyperbolic, PCB, PCB_test
 from utils import fuse_all_conv_bn
 #fp16
 try:
@@ -210,7 +210,7 @@ def extract_feature(model,dataloaders):
             fnorm = torch.norm(ff, p=2, dim=1, keepdim=True) * np.sqrt(6) 
             ff = ff.div(fnorm.expand_as(ff))
             ff = ff.view(ff.size(0), -1)
-        else:
+        elif not opt.use_hyperbolic:
             fnorm = torch.norm(ff, p=2, dim=1, keepdim=True)
             ff = ff.div(fnorm.expand_as(ff))
 
