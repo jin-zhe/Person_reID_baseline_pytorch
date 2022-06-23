@@ -87,11 +87,12 @@ class Distance2PoincareHyperplanes(nn.Module):
 
     def __init__(
         self,
-        in_features: int,     # input dimension. e.g 200
-        out_features: int,    # output dimension. i.e. number of hyperplanes (classes) e.g. 5
-        reparameterize=True,  # whether or not to use same vector for point on plane and orthogonal
+        in_features: int,       # input dimension. e.g 200
+        out_features: int,      # output dimension. i.e. number of hyperplanes (classes) e.g. 5
+        reparameterize=True,    # whether or not to use same vector for point on plane and orthogonal
         signed=True,
         squared=False,
+        dtype=torch.double,     # torch.float not recommended
         *,
         ball,
         std=1.0,
@@ -99,18 +100,23 @@ class Distance2PoincareHyperplanes(nn.Module):
         super().__init__()
         self.signed = signed
         self.squared = squared
+        self.dtype = dtype
         self.ball = ball
-        self.in_features = size2shape(in_features) # e.g. shape: (200,)
-        self.out_features = out_features           # e.g. 5
+        self.in_features = size2shape(in_features)  # e.g. shape: (200,)
+        self.out_features = out_features            # e.g. 5
         self.reparameterize = reparameterize
-        self.p = ManifoldParameter(                # hyperplane points
-            torch.empty(out_features, in_features), manifold=self.ball  #e.g. shape: (5, 200)
+        self.p = ManifoldParameter(                 # hyperplane points
+            torch.empty(out_features, in_features), # e.g. shape: (5, 200)
+            manifold=self.ball,
+            dtype=self.dtype
         )
         if self.reparameterize:
             self.a = self.p
         else:
             self.a = ManifoldParameter(             # hyperplane orthogonals
-              torch.empty(out_features, in_features), manifold=self.ball 
+              torch.empty(out_features, in_features),
+              manifold=self.ball,
+              dtype=self.dtype
             )
         self.std = std
         self.reset_parameters()
