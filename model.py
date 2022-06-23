@@ -106,17 +106,15 @@ class Distance2PoincareHyperplanes(nn.Module):
         self.out_features = out_features            # e.g. 5
         self.reparameterize = reparameterize
         self.p = ManifoldParameter(                 # hyperplane points
-            torch.empty(out_features, in_features), # e.g. shape: (5, 200)
-            manifold=self.ball,
-            dtype=self.dtype
+            torch.empty(out_features, in_features, dtype=self.dtype), # e.g. shape: (5, 200)
+            manifold=self.ball
         )
         if self.reparameterize:
             self.a = self.p
         else:
             self.a = ManifoldParameter(             # hyperplane orthogonals
-              torch.empty(out_features, in_features),
-              manifold=self.ball,
-              dtype=self.dtype
+              torch.empty(out_features, in_features, dtype=self.dtype),
+              manifold=self.ball
             )
         self.std = std
         self.reset_parameters()
