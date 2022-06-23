@@ -12,149 +12,149 @@ from geoopt.utils import size2shape
 ######## Hyperbolic components #################################################
 
 def create_ball(ball=None, c=None):
-  """
-  Adapted from: https://raw.githubusercontent.com/geoopt/geoopt/master/examples/mobius_linear_example.py
-  Helper to create a PoincareBall.
+    """
+    Adapted from: https://raw.githubusercontent.com/geoopt/geoopt/master/examples/mobius_linear_example.py
+    Helper to create a PoincareBall.
 
-  Sometimes you may want to share a manifold across layers, e.g. you are using scaled PoincareBall.
-  In this case you will require same curvature parameters for different layers or end up with nans.
+    Sometimes you may want to share a manifold across layers, e.g. you are using scaled PoincareBall.
+    In this case you will require same curvature parameters for different layers or end up with nans.
 
-  Parameters
-  ----------
-  ball : geoopt.PoincareBall
-  c : float
+    Parameters
+    ----------
+    ball : geoopt.PoincareBall
+    c : float
 
-  Returns
-  -------
-  geoopt.PoincareBall
-  """
-  if ball is None:
-    assert c is not None, "curvature of the ball should be explicitly specified"
-    print(f'Creating Poincare ball with c={c}.')
-    ball = PoincareBall(c)
-  # else trust input
-  return ball
+    Returns
+    -------
+    geoopt.PoincareBall
+    """
+    if ball is None:
+        assert c is not None, "curvature of the ball should be explicitly specified"
+        print(f'Creating Poincare ball with c={c}.')
+        ball = PoincareBall(c)
+    # else trust input
+    return ball
 
 def mobius_linear(input, weight, bias=None, nonlin=None, *, ball: PoincareBall):
-  """
-  Adapted from: https://raw.githubusercontent.com/geoopt/geoopt/master/examples/mobius_linear_example.py
-  """
-  output = ball.mobius_matvec(weight, input)
-  if bias is not None:
-    output = ball.mobius_add(output, bias)
-  if nonlin is not None:
-    output = ball.logmap0(output)
-    output = nonlin(output)
-    output = ball.expmap0(output)
-  return output
+    """
+    Adapted from: https://raw.githubusercontent.com/geoopt/geoopt/master/examples/mobius_linear_example.py
+    """
+    output = ball.mobius_matvec(weight, input)
+    if bias is not None:
+        output = ball.mobius_add(output, bias)
+    if nonlin is not None:
+        output = ball.logmap0(output)
+        output = nonlin(output)
+        output = ball.expmap0(output)
+    return output
 
 class MobiusLinear(nn.Linear):
-  """
-  Adapted from: https://raw.githubusercontent.com/geoopt/geoopt/master/examples/mobius_linear_example.py
-  """
-  def __init__(self, *args, nonlin=None, ball=None, c=1.0, **kwargs):
-    super().__init__(*args, **kwargs)
-    # for manifolds that have parameters like Poincare Ball
-    # we have to attach them to the closure Module.
-    # It is hard to implement device allocation for manifolds in other case.
-    self.ball = create_ball(ball, c)
-    if self.bias is not None:
-      self.bias = ManifoldParameter(self.bias, manifold=self.ball)
-    self.nonlin = nonlin
-    self.reset_parameters()
+    """
+    Adapted from: https://raw.githubusercontent.com/geoopt/geoopt/master/examples/mobius_linear_example.py
+    """
+    def __init__(self, *args, nonlin=None, ball=None, c=1.0, **kwargs):
+        super().__init__(*args, **kwargs)
+        # for manifolds that have parameters like Poincare Ball
+        # we have to attach them to the closure Module.
+        # It is hard to implement device allocation for manifolds in other case.
+        self.ball = create_ball(ball, c)
+        if self.bias is not None:
+            self.bias = ManifoldParameter(self.bias, manifold=self.ball)
+        self.nonlin = nonlin
+        self.reset_parameters()
 
-  def forward(self, input):
-    return mobius_linear(
-      input,
-      weight=self.weight,
-      bias=self.bias,
-      nonlin=self.nonlin,
-      ball=self.ball,
-    )
+    def forward(self, input):
+        return mobius_linear(
+            input,
+            weight=self.weight,
+            bias=self.bias,
+            nonlin=self.nonlin,
+            ball=self.ball,
+        )
 
-  @torch.no_grad()
-  def reset_parameters(self):
-    nn.init.eye_(self.weight)
-    self.weight.add_(torch.rand_like(self.weight).mul_(1e-3))
-    if self.bias is not None:
-      self.bias.zero_()
+    @torch.no_grad()
+    def reset_parameters(self):
+        nn.init.eye_(self.weight)
+        self.weight.add_(torch.rand_like(self.weight).mul_(1e-3))
+        if self.bias is not None:
+            self.bias.zero_()
 
 class Distance2PoincareHyperplanes(nn.Module):
-  """
-  Adapted from https://github.com/geoopt/geoopt/blob/master/examples/hyperbolic_multiclass_classification.ipynb
-  """
-  n = 0
+    """
+    Adapted from https://github.com/geoopt/geoopt/blob/master/examples/hyperbolic_multiclass_classification.ipynb
+    """
+    n = 0
 
-  def __init__(
-    self,
-    in_features: int,     # input dimension. e.g 200
-    out_features: int,    # output dimension. i.e. number of hyperplanes (classes) e.g. 5
-    reparameterize=True,  # whether or not to use same vector for point on plane and orthogonal
-    signed=True,
-    squared=False,
-    *,
-    ball,
-    std=1.0,
-  ):
-    super().__init__()
-    self.signed = signed
-    self.squared = squared
-    self.ball = ball
-    self.in_features = size2shape(in_features) # e.g. shape: (200,)
-    self.out_features = out_features           # e.g. 5
-    self.reparameterize = reparameterize
-    self.p = ManifoldParameter(                # hyperplane points
-      torch.empty(out_features, in_features), manifold=self.ball  #e.g. shape: (5, 200)
-    )
-    if self.reparameterize:
-      self.a = self.p
-    else:
-      self.a = ManifoldParameter(             # hyperplane orthogonals
-        torch.empty(out_features, in_features), manifold=self.ball 
-      )
-    self.std = std
-    self.reset_parameters()
+    def __init__(
+        self,
+        in_features: int,     # input dimension. e.g 200
+        out_features: int,    # output dimension. i.e. number of hyperplanes (classes) e.g. 5
+        reparameterize=True,  # whether or not to use same vector for point on plane and orthogonal
+        signed=True,
+        squared=False,
+        *,
+        ball,
+        std=1.0,
+    ):
+        super().__init__()
+        self.signed = signed
+        self.squared = squared
+        self.ball = ball
+        self.in_features = size2shape(in_features) # e.g. shape: (200,)
+        self.out_features = out_features           # e.g. 5
+        self.reparameterize = reparameterize
+        self.p = ManifoldParameter(                # hyperplane points
+            torch.empty(out_features, in_features), manifold=self.ball  #e.g. shape: (5, 200)
+        )
+        if self.reparameterize:
+            self.a = self.p
+        else:
+            self.a = ManifoldParameter(             # hyperplane orthogonals
+              torch.empty(out_features, in_features), manifold=self.ball 
+            )
+        self.std = std
+        self.reset_parameters()
 
-  def forward(self, input):
-    input_p = input.unsqueeze(-self.n - 1)
-    p = self.p.permute(1, 0)            # convert to col vect: in_features, out_features. e.g. shape: (200, 5)
-    p = p.view(p.shape + (1,) * self.n) # does nothing for n = 0
-    if self.reparameterize:
-      a = p
-    else:
-      a = self.a.permute(1, 0)
-      a = a.view(a.shape + (1,) * self.n)
+    def forward(self, input):
+        input_p = input.unsqueeze(-self.n - 1)
+        p = self.p.permute(1, 0)            # convert to col vect: in_features, out_features. e.g. shape: (200, 5)
+        p = p.view(p.shape + (1,) * self.n) # does nothing for n = 0
+        if self.reparameterize:
+            a = p
+        else:
+            a = self.a.permute(1, 0)
+            a = a.view(a.shape + (1,) * self.n)
 
-    distance = self.ball.dist2plane(
-      x=input_p, p=p, a=a, signed=self.signed, dim=-self.n - 2
-    )
-    if self.squared and self.signed:
-      sign = distance.sign()
-      distance = distance ** 2 * sign
-    elif self.squared:
-      distance = distance ** 2
-    return distance
+        distance = self.ball.dist2plane(
+            x=input_p, p=p, a=a, signed=self.signed, dim=-self.n - 2
+        )
+        if self.squared and self.signed:
+            sign = distance.sign()
+            distance = distance ** 2 * sign
+        elif self.squared:
+            distance = distance ** 2
+        return distance
 
-  def extra_repr(self):
-    return (
-      "in_features={in_features}, "
-      "out_features={out_features}, "
-      .format(**self.__dict__)
-    )
+    def extra_repr(self):
+        return (
+            "in_features={in_features}, "
+            "out_features={out_features}, "
+            .format(**self.__dict__)
+        )
 
-  @torch.no_grad()
-  def reset_parameters(self):
-    # reset self.p
-    directions = torch.randn_like(self.p)
-    unit_directions = directions / directions.norm(dim=-1, keepdim=True)
-    magnitudes = torch.empty_like(self.p[..., 0]).normal_(std=self.std).unsqueeze(-1)
-    self.p.set_(self.ball.expmap0(unit_directions * magnitudes))
-    
-    # reset self.a
-    if self.reparameterize:
-      self.a = self.p
-    else:
-      self.a.set_(unit_directions)
+    @torch.no_grad()
+    def reset_parameters(self):
+        # reset self.p
+        directions = torch.randn_like(self.p)
+        unit_directions = directions / directions.norm(dim=-1, keepdim=True)
+        magnitudes = torch.empty_like(self.p[..., 0]).normal_(std=self.std).unsqueeze(-1)
+        self.p.set_(self.ball.expmap0(unit_directions * magnitudes))
+        
+        # reset self.a
+        if self.reparameterize:
+            self.a = self.p
+        else:
+            self.a.set_(unit_directions)
 
 ######################################################################
 def weights_init_kaiming(m):

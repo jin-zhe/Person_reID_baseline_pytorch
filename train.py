@@ -229,7 +229,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
         criterion_instance = InstanceLoss(gamma = opt.ins_gamma)
     if opt.sphere:
         criterion_sphere = losses.SphereFaceLoss(num_classes=opt.nclasses, embedding_size=512, margin=4)
-    for epoch in range(1,num_epochs+1):
+    for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs))
         print('-' * 10)
         
@@ -314,7 +314,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
                 del inputs
                 # use extra DG Dataset (https://github.com/NVlabs/DG-Net#dg-market)
-                if opt.DG and phase == 'train' and epoch-1 > num_epochs*0.1:
+                if opt.DG and phase == 'train' and epoch > num_epochs*0.1:
                     try:
                         _, batch = DGloader_iter.__next__()
                     except StopIteration: 
@@ -350,7 +350,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                     del inputs1, inputs2
                     #print(0.01*reg)
                 # backward + optimize only if in training phase
-                if epoch-1<opt.warm_epoch and phase == 'train': 
+                if epoch<opt.warm_epoch and phase == 'train': 
                     warm_up = min(1.0, warm_up + 0.9 / warm_iteration)
                     loss = loss*warm_up
 
@@ -386,7 +386,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 draw_curve(epoch)
             if phase == 'train' and scheduler is not None:
                scheduler.step()
-        wandb.log({'epoch':epoch}, step=epoch)
+        wandb.log({'epoch':epoch+1}, step=epoch+1)
         time_elapsed = time.time() - since
         print('Training complete in {:.0f}m {:.0f}s'.format(
             time_elapsed // 60, time_elapsed % 60))
@@ -559,7 +559,7 @@ with wandb.init(project=f'reid_{opt.name}', config=config):
     for phase in ['train', 'val']:
         for metric in ['Loss', 'Acc']:
             wandb.define_metric(f'{phase}/{metric}', step_metric='epoch')
-    wandb.watch(models=model, criterion=criterion,log='all', log_freq=10)
+    wandb.watch(models=model, criterion=criterion, log='all', log_freq=10)
     model = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,
         num_epochs=opt.total_epoch)
 
