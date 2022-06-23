@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+
 from __future__ import print_function, division
 
 import argparse
@@ -191,17 +192,20 @@ def extract_feature(model,dataloaders):
 
         if opt.PCB:
             ff = torch.FloatTensor(n,2048,6).zero_().cuda() # we have six parts
-
-        for i in range(2):
-            if(i==1):
-                img = fliplr(img)
+        if opt.use_hyperbolic:
             input_img = Variable(img.cuda())
-            for scale in ms:
-                if scale != 1:
-                    # bicubic is only  available in pytorch>= 1.1
-                    input_img = nn.functional.interpolate(input_img, scale_factor=scale, mode='bicubic', align_corners=False)
-                outputs = model(input_img) 
-                ff += outputs
+            ff = model(input_img)
+        else:
+            for i in range(2):
+                if(i==1):
+                    img = fliplr(img)
+                input_img = Variable(img.cuda())
+                for scale in ms:
+                    if scale != 1:
+                        # bicubic is only  available in pytorch>= 1.1
+                        input_img = nn.functional.interpolate(input_img, scale_factor=scale, mode='bicubic', align_corners=False)
+                    outputs = model(input_img)
+                    ff += outputs
         # norm feature
         if opt.PCB:
             # feature size (n,2048,6)

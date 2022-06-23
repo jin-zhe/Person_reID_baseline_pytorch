@@ -3,19 +3,25 @@ import torch
 import numpy as np
 #import time
 import os
+from geoopt import PoincareBall
 
+ball = PoincareBall(1.0)
 #######################################################################
 # Evaluate
 def evaluate(qf,ql,qc,gf,gl,gc):
-    query = qf.view(-1,1)
-    # print(query.shape)
-    score = torch.mm(gf,query)
-    score = score.squeeze(1).cpu()
-    score = score.numpy()
-    # predict index
-    index = np.argsort(score)  #from small to large
-    index = index[::-1]
-    # index = index[0:2000]
+    if True: # for hyperbolic
+        score = ball.dist(qf, gf)
+        score = score.cpu().numpy()
+        index = np.argsort(score)
+    else:
+        query = qf.view(-1,1)
+        score = torch.mm(gf,query)
+        score = score.squeeze(1).cpu()
+        score = score.numpy()
+        # predict index
+        index = np.argsort(score)  #from small to large
+        index = index[::-1]
+        # index = index[0:2000]
     # good index
     query_index = np.argwhere(gl==ql)
     camera_index = np.argwhere(gc==qc)
