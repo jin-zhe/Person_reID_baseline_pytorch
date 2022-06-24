@@ -189,20 +189,21 @@ def activate_drop(m):
 # Defines the new fc layer and classification layer
 # |--Linear--|--bn--|--relu--|--Linear--|
 class ClassBlock(nn.Module):
-    def __init__(self, input_dim, class_num, droprate, relu=False, bnorm=True, linear=512, return_f = False, hyperbolic=False, dtype=torch.float, c=1.0):
+    def __init__(self, input_dim, class_num, droprate, relu=False, bnorm=True, linear=512, return_f = False, hyperbolic=False, dtype=torch.float, hype_std=1.0, c=1.0):
         super(ClassBlock, self).__init__()
         self.return_f = return_f
         self.hyperbolic = hyperbolic
         self.dtype = dtype
+        self.hype_std = hype_std
         if self.hyperbolic:
             self.ball = create_ball(c=c)
         add_block = []
         if linear>0:
-            add_block += [nn.Linear(input_dim, dtype=self.dtype)]
+            add_block += [nn.Linear(input_dim, linear, dtype=self.dtype)]
         else:
             linear = input_dim
         if bnorm:
-            add_block += [nn.BatchNorm1d(linear)]
+            add_block += [nn.BatchNorm1d(linear, dtype=self.dtype)]
         if relu:
             add_block += [nn.LeakyReLU(0.1)]
         if droprate>0:
@@ -212,7 +213,7 @@ class ClassBlock(nn.Module):
         add_block.apply(weights_init_kaiming)
 
         if self.hyperbolic:
-            classifier = Distance2PoincareHyperplanes(in_features=linear, out_features=class_num, ball=self.ball, std=1.0, dtype=self.dtype)
+            classifier = Distance2PoincareHyperplanes(in_features=linear, out_features=class_num, ball=self.ball, std=self.hype_std, dtype=self.dtype)
         else:
             classifier = []
             classifier += [nn.Linear(linear, class_num)]
@@ -433,7 +434,7 @@ class ft_net_middle(nn.Module):
 
 class ft_net_hyperbolic(nn.Module):
 
-    def __init__(self, class_num=751, droprate=0, stride=2, circle=False, ibn=False, linear_num=512):
+    def __init__(self, class_num=751, droprate=0, stride=2, circle=False, ibn=False, linear_num=512, std=1.0):
         super(ft_net_hyperbolic, self).__init__()
         model_ft = models.resnet50(pretrained=True)
         if ibn==True:
@@ -446,7 +447,7 @@ class ft_net_hyperbolic(nn.Module):
         self.model = model_ft
         self.circle = circle
 
-        self.classifier = ClassBlock(2048, class_num, droprate, linear=linear_num, return_f=circle, hyperbolic=True, dtype=torch.double)
+        self.classifier = ClassBlock(2048, class_num, droprate, linear=linear_num, return_f=circle, hyperbolic=True, dtype=torch.double, hype_std=std)
 
     def forward(self, x):
         x = self.model.conv1(x)
@@ -459,6 +460,7 @@ class ft_net_hyperbolic(nn.Module):
         x = self.model.layer4(x)
         x = self.model.avgpool(x)
         x = x.view(x.size(0), x.size(1))
+        x = x.to(dtype=torch.double)
         x = self.classifier(x)
         return x
 

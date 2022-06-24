@@ -67,6 +67,7 @@ parser.add_argument('--use_NAS', action='store_true', help='use NAS' )
 parser.add_argument('--use_hr', action='store_true', help='use hrNet' )
 parser.add_argument('--use_convnext', action='store_true', help='use ConvNext' )
 parser.add_argument('--use_hyperbolic', action='store_true', help='use hyperbolic net' )
+parser.add_argument('--hype_std', type=float, default=0.001, help='standard deviation for hyperbolic hyperplane' )
 parser.add_argument('--ibn', action='store_true', help='use resnet+ibn' )
 parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50' )
 # los
@@ -230,7 +231,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     if opt.sphere:
         criterion_sphere = losses.SphereFaceLoss(num_classes=opt.nclasses, embedding_size=512, margin=4)
     for epoch in range(num_epochs):
-        print('Epoch {}/{}'.format(epoch, num_epochs))
+        print('Epoch {}/{}'.format(epoch, num_epochs-1))
         print('-' * 10)
         
         # Each epoch has a training and validation phase
@@ -454,7 +455,7 @@ elif opt.use_hr:
 elif opt.use_convnext:
     model = ft_net_convnext(len(class_names), opt.droprate, circle = return_feature, linear_num=opt.linear_num)
 elif opt.use_hyperbolic:
-    model = ft_net_hyperbolic(len(class_names), opt.droprate, circle = return_feature, linear_num=opt.linear_num)
+    model = ft_net_hyperbolic(len(class_names), opt.droprate, circle = return_feature, linear_num=opt.linear_num, std=opt.hype_std)
 else:
     model = ft_net(len(class_names), opt.droprate, opt.stride, circle = return_feature, ibn=opt.ibn, linear_num=opt.linear_num)
 
@@ -552,7 +553,8 @@ config={
     'total_epoch': opt.total_epoch,
     'lr': opt.lr,
     'droprate': opt.droprate,
-    'hype_optim': opt.hype_optim
+    'hype_optim': opt.hype_optim,
+    'hype_std': opt.hype_std
 }
 with wandb.init(project=f'reid_{opt.name}', config=config):    
     wandb.define_metric("epoch")
