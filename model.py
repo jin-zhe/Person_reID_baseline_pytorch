@@ -11,7 +11,7 @@ from geoopt.utils import size2shape
 
 ######## Hyperbolic components #################################################
 
-def create_ball(ball=None, c=None):
+def create_ball(ball=None, c=None, learnable=False):
     """
     Adapted from: https://raw.githubusercontent.com/geoopt/geoopt/master/examples/mobius_linear_example.py
     Helper to create a PoincareBall.
@@ -31,7 +31,7 @@ def create_ball(ball=None, c=None):
     if ball is None:
         assert c is not None, "curvature of the ball should be explicitly specified"
         print(f'Creating Poincare ball with c={c}.')
-        ball = PoincareBall(c)
+        ball = PoincareBall(c, learnable=learnable)
     # else trust input
     return ball
 
@@ -197,6 +197,7 @@ class ClassBlock(nn.Module):
         self.hype_std = hype_std
         if self.hyperbolic:
             self.ball = create_ball(c=c)
+            self.dist_scale = nn.Parameter(torch.tensor(0.01, dtype=self.dtype))
         add_block = []
         if linear>0:
             add_block += [nn.Linear(input_dim, linear, dtype=self.dtype)]
@@ -213,7 +214,7 @@ class ClassBlock(nn.Module):
         add_block.apply(weights_init_kaiming)
 
         if self.hyperbolic:
-            classifier = Distance2PoincareHyperplanes(in_features=linear, out_features=class_num, ball=self.ball, std=self.hype_std, dtype=self.dtype)
+            classifier = Distance2PoincareHyperplanes(in_features=linear, out_features=class_num, ball=self.ball, std=self.hype_std, dtype=self.dtype, squared=True)
         else:
             classifier = []
             classifier += [nn.Linear(linear, class_num)]
@@ -226,13 +227,11 @@ class ClassBlock(nn.Module):
         x = self.add_block(x)
         if self.hyperbolic:
             x = self.ball.expmap0(x)
-        if self.return_f:
-            f = x
-            x = self.classifier(x)
-            return [x,f]
-        else:
-            x = self.classifier(x)
-            return x
+        f = x
+        x = self.classifier(x)
+        if self.hyperbolic:
+            x *= self.dist_scale
+        return [x,f] if self.return_f else x
 
 # Define the ResNet50-based Model
 class ft_net(nn.Module):
